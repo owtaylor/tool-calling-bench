@@ -1,0 +1,5 @@
+click
+PyYAML
+ollama
+anthropic
+rich  # For nice output formatting

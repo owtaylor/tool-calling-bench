@@ -1,0 +1,5 @@
+backend: ollama
+model: granite3.2:8b
+systemPrompt: "You are a helpful assistant. Use the available tools when necessary."
+# Optional Ollama-specific parameters
+# host: "http://localhost:11434"

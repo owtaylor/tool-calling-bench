@@ -1,0 +1,17 @@
+[
+  {
+    "id": "q1_read_testjs",
+    "question": "What does \"test.js\" contain?",
+    "expected_tool": "builtin_read_file"
+  },
+  {
+    "id": "q2_read_config",
+    "question": "Can you show me the contents of config.yaml?",
+    "expected_tool": "builtin_read_file"
+  },
+  {
+    "id": "q3_search_weather",
+    "question": "What's the weather like in Boston today?",
+    "expected_tool": "builtin_web_search"
+  }
+]

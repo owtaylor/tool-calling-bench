@@ -1,0 +1,6 @@
+backend: anthropic
+model: claude-3-opus-20240229 # Example Opus model
+systemPrompt: "You are a helpful assistant. Use the available tools when necessary to answer the user's questions."
+# Optional Anthropic-specific parameters
+# api_key: "your_api_key_here" # Better to use environment variable ANTHROPIC_API_KEY
+# max_tokens: 1024

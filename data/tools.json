@@ -1,0 +1,51 @@
+[
+  {
+    "type": "function",
+    "displayTitle": "Read File",
+    "wouldLikeTo": "read {{{ filepath }}}",
+    "isCurrently": "reading {{{ filepath }}}",
+    "hasAlready": "viewed {{{ filepath }}}",
+    "readonly": true,
+    "group": "Built-In",
+    "function": {
+      "name": "builtin_read_file",
+      "description": "Use this tool if you need to view the contents of an existing file.",
+      "parameters": {
+        "type": "object",
+        "required": [
+          "filepath"
+        ],
+        "properties": {
+          "filepath": {
+            "type": "string",
+            "description": "The path of the file to read, relative to the root of the workspace (NOT uri or absolute path)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "displayTitle": "Search Web",
+    "wouldLikeTo": "search the web for {{{ query }}}",
+    "isCurrently": "searching the web for {{{ query }}}",
+    "hasAlready": "searched the web for {{{ query }}}",
+    "readonly": true,
+    "group": "Built-In",
+    "function": {
+        "name": "builtin_web_search",
+        "description": "Use this tool to search the web for information.",
+        "parameters": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The search query."
+                }
+            }
+        }
+    }
+  }
+]
+
