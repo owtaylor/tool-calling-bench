@@ -69,8 +69,7 @@ def run_evaluation(
     questions: list[dict],
     num_runs: int,
     temperature: float,
-    # Removed use_distractors, specific_distractor
-    distractors_to_run: List[str],  # New parameter: list of distractor keys to run
+    distractors_to_run: List[str],
     secrets: Secrets,
     verbose: bool = False,
 ) -> dict:
@@ -108,10 +107,10 @@ def run_evaluation(
     for q_data in questions:
         question_id = q_data["id"]
         question_text = q_data["question"]
-        expected_tool = q_data["expected_tool"]
+        expected_tool = q_data.get("expected_tool")  # Use .get() to handle missing keys
 
         logger.info(
-            f"Testing Question ID: {question_id} ('{question_text}') | Expected Tool: {expected_tool}"
+            f"Testing Question ID: {question_id} ('{question_text}') | Expected Tool: {expected_tool or 'None (No Tool Expected)'}"
         )
 
         # Loop through the specified distractors (including 'none')
@@ -155,6 +154,16 @@ def run_evaluation(
                         logger.warning(
                             f"    Run {i+1}/{num_runs}: Backend Error - {response_content}"
                         )
+                    elif expected_tool is None:
+                        # If no tool is expected, ensure no tool was called
+                        if called_tool:
+                            results[question_id][distractor_key]["wrong_call"] += 1
+                            logger.warning(
+                                f"    Run {i+1}/{num_runs}: Wrong tool (Called {called_tool}, Expected None)"
+                            )
+                        else:
+                            results[question_id][distractor_key]["success"] += 1
+                            logger.debug(f"    Run {i+1}/{num_runs}: Success (No tool called)")
                     elif called_tool == expected_tool:
                         results[question_id][distractor_key]["success"] += 1
                         logger.debug(f"    Run {i+1}/{num_runs}: Success (Called {called_tool})")

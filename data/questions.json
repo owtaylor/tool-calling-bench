@@ -1,17 +1,67 @@
 [
   {
-    "id": "q1_read_testjs",
-    "question": "What does \"test.js\" contain?",
+    "id": "read_testjs",
+    "question": "What does \"test.js\" do?",
     "expected_tool": "builtin_read_file"
   },
   {
-    "id": "q2_read_config",
-    "question": "Can you show me the contents of config.yaml?",
+    "id": "read_testjs_no_quotes",
+    "question": "What does test.js do?",
     "expected_tool": "builtin_read_file"
   },
   {
-    "id": "q3_search_weather",
-    "question": "What's the weather like in Boston today?",
-    "expected_tool": "builtin_web_search"
+    "id": "read_current_file",
+    "question": "What does the current file do?",
+    "expected_tool": "builtin_read_currently_open_file"
+  },
+  {
+    "id": "read_current_file_2",
+    "question": "What does this file do?",
+    "expected_tool": "builtin_read_currently_open_file"
+  },
+  {
+    "id": "current_weather",
+    "question": "What's the weather like in Philly today?",
+    "expected_tool": "get_current_weather"
+  },
+  {
+    "id": "search_concerts",
+    "question": "What concerts are there in Boston tonight?",
+    "expected_tool": "builtin_search_web"
+  },
+  {
+    "id": "what_is_python",
+    "question": "What is Python?",
+    "expected_tool": null
+  },
+  {
+    "id": "current_python",
+    "question": "What is the current released version of Python?",
+    "expected_tool": "builtin_search_web"
+  },
+  {
+    "id": "asynchronous_iterator",
+    "question": "What is an asynchronous iterator?",
+    "expected_tool": null
+  },
+  {
+    "id": "current_git_branch",
+    "question": "What is the current git branch?",
+    "expected_tool": "builtin_run_terminal_command"
+  },
+  {
+    "id": "create_react_app",
+    "question": "Create a new React project called demoweb using create-react-app.",
+    "expected_tool": "builtin_run_terminal_command"
+  },
+  {
+    "id": "create_react_app_2",
+    "question": "Create a new empty React project called demoweb.",
+    "expected_tool": "builtin_run_terminal_command"
+  },
+  {
+    "id": "get_issue",
+    "question": "Please summarize granite-code/granite-code#1.",
+    "expected_tool": "get_issue"
   }
 ]
