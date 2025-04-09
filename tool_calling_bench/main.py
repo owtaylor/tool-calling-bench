@@ -1,5 +1,6 @@
 # tool_calling_bench/main.py
 
+from itertools import chain
 import click
 import yaml
 import json
@@ -196,12 +197,45 @@ loaded_tools = []
 loaded_questions = []
 
 
+def get_success_rate(stats: list[tuple[int, int]]):
+    """
+    Calculate the average success rate and its standard error from a list of (success, total) tuples
+    for different questions.
+
+    This is different than just pooling everything together , even if all the questions have
+    the same number of iterations because the individual variances are greater for questions
+    with p=0.5 than ones that we always succeed or fail at (p=1.0, p=0.0).
+
+    This could get arbitrarily complicated (Jeffries prior, Bayesian statistics, etc), but just
+    assuming that each individual question has a nice normal distribution and summing the
+    variances in the standard way works OK except when we are always succeeding or always
+    failing.
+    """
+    p_total = 0
+    variance_total = 0
+    for success, tries in stats:
+        p = success/tries
+        variance = p * (1-p)/(tries*tries)
+        p_total += p
+        variance_total += variance
+
+    return p_total / len(stats), (variance_total / len(stats)) ** 0.5
+
+
+def success_rate_string(stats: list[tuple[int, int]]):
+    avg, stderr = get_success_rate(stats)
+    if stderr == 0:
+        return f"{100*avg:.0f}%"
+    else:
+        return f"{100*avg:.0f}±{100*stderr:.0f}%"
+
+
 def display_results(all_results: dict, questions_data: list[dict], console: Console):
     """Formats and prints the evaluation results using Rich."""
     console.rule("[bold cyan]Evaluation Results Summary", style="cyan")
 
     # Initialize a dictionary to track summary statistics for each distractor
-    distractor_summary: defaultdict[str, tuple[int, int]] = defaultdict(list)
+    distractor_summary: defaultdict[str, list[tuple[int, int]]] = defaultdict(list)
 
     for config_name, results_data in all_results.items():
         if not results_data:
@@ -248,7 +282,7 @@ def display_results(all_results: dict, questions_data: list[dict], console: Cons
                         q_id if is_first_row_for_question else "",
                         expected_tool if is_first_row_for_question else "",
                         distractor_key,  # Display the name of the distractor context
-                        f"{rate:.1f}%",
+                        f"{rate:.0f}%",
                         str(res.get("success", 0)),
                         str(res.get("no_call", 0)),
                         str(res.get("wrong_call", 0)),
@@ -289,23 +323,24 @@ def display_results(all_results: dict, questions_data: list[dict], console: Cons
 
     # Add rows for each distractor
     for distractor_key, stats in distractor_summary.items():
-        total = stats["total"]
-        success = stats["success"]
-        success_rate = (success / total) * 100 if total > 0 else 0
+        success = sum(s[0] for s in stats)
+        total = sum(s[1] for s in stats)
+        success_rate, success_rate_stderr = get_success_rate(stats)
         summary_table.add_row(
             distractor_key,
-            f"{success_rate:.1f}%",
+            f"{success_rate_string(stats)}",
             str(success),
             str(total),
         )
 
     # Add a row for the overall summary
-    overall_success = sum(stats["success"] for stats in distractor_summary.values())
-    overall_total = sum(stats["total"] for stats in distractor_summary.values())
-    overall_success_rate = (overall_success / overall_total) * 100 if overall_total > 0 else 0
+    total_stats = list(chain.from_iterable(distractor_summary.values()))
+    overall_success = sum(s[0] for s in total_stats)
+    overall_total = sum(s[1] for s in total_stats)
+    overall_success_rate, overall_success_rate_stderr = get_success_rate(total_stats)
     summary_table.add_row(
         "[bold]Overall[/bold]",
-        f"[bold]{overall_success_rate:.1f}%[/bold]",
+        f"[bold]{success_rate_string(total_stats)}[/bold]",
         f"[bold]{overall_success}[/bold]",
         f"[bold]{overall_total}[/bold]",
     )
