@@ -12,9 +12,7 @@
       "description": "Use this tool if you need to view the contents of an existing file.",
       "parameters": {
         "type": "object",
-        "required": [
-          "filepath"
-        ],
+        "required": ["filepath"],
         "properties": {
           "filepath": {
             "type": "string",
@@ -33,19 +31,18 @@
     "readonly": true,
     "group": "Built-In",
     "function": {
-        "name": "builtin_web_search",
-        "description": "Use this tool to search the web for information.",
-        "parameters": {
-            "type": "object",
-            "required": ["query"],
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "The search query."
-                }
-            }
+      "name": "builtin_web_search",
+      "description": "Use this tool to search the web for information.",
+      "parameters": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The search query."
+          }
         }
+      }
     }
   }
 ]
-
