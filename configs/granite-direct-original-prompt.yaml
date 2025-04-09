@@ -1,0 +1,3 @@
+backend: granite_direct
+model: granite3.2:8b
+num_ctx: 8192

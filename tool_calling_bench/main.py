@@ -15,6 +15,7 @@ from rich.logging import RichHandler
 # Import backend functions
 from .llm_backends.ollama_backend import invoke_ollama
 from .llm_backends.anthropic_backend import invoke_anthropic
+from .llm_backends.granite_direct_backend import invoke_granite_direct
 from .distractors import get_distractor_messages, DISTRACTOR_SETS
 from .secrets_manager import Secrets
 
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Suppress logging from third-party libraries like 'requests'
 logging.getLogger("urllib3").setLevel(logging.WARNING)  # Suppress urllib3 logs
-logging.getLogger("requests").setLevel(logging.WARNING) # Suppress requests logs
+logging.getLogger("requests").setLevel(logging.WARNING)  # Suppress requests logs
 
 # --- Constants ---
 NO_DISTRACTOR_KEY = "none"  # Define a constant for the no-distractor case
@@ -35,6 +36,7 @@ NO_DISTRACTOR_KEY = "none"  # Define a constant for the no-distractor case
 BACKEND_MAP = {
     "ollama": invoke_ollama,
     "anthropic": invoke_anthropic,
+    "granite_direct": invoke_granite_direct,
     # Add other backends here
 }
 
@@ -199,7 +201,7 @@ def display_results(all_results: dict, questions_data: list[dict], console: Cons
     console.rule("[bold cyan]Evaluation Results Summary", style="cyan")
 
     # Initialize a dictionary to track summary statistics for each distractor
-    distractor_summary = defaultdict(lambda: {"success": 0, "total": 0})
+    distractor_summary: defaultdict[str, tuple[int, int]] = defaultdict(list)
 
     for config_name, results_data in all_results.items():
         if not results_data:
@@ -256,8 +258,9 @@ def display_results(all_results: dict, questions_data: list[dict], console: Cons
                     )
 
                     # Update distractor summary statistics
-                    distractor_summary[distractor_key]["success"] += res.get("success", 0)
-                    distractor_summary[distractor_key]["total"] += res.get("total", 0)
+                    distractor_summary[distractor_key].append(
+                        (res.get("success", 0), res.get("total", 0))
+                    )
                 else:
                     # Add a placeholder row if results are missing/empty for this distractor
                     table.add_row(

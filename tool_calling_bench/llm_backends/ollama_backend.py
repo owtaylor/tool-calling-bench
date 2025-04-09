@@ -2,6 +2,7 @@
 import ollama
 import json
 import logging
+import re
 from typing import Tuple, Optional, List, Dict, Any
 from ..secrets_manager import Secrets  # <-- Import Secrets for type hinting
 
@@ -42,13 +43,51 @@ def format_tools_for_ollama(tools_data: list[dict]) -> list[dict]:
     return formatted_tools
 
 
+def get_num_ctx(client: ollama.Client, model: str, kwargs: dict = None) -> int:
+    """
+    Retrieve the context window size from the model parameters or kwargs.
+
+    Args:
+        client: Ollama client instance
+        model: The model name
+        kwargs: Additional keyword arguments that might contain num_ctx
+
+    Returns:
+        int: The context window size, defaulting to 2048 if not found
+    """
+    # First check if num_ctx is provided in kwargs
+    if kwargs and "num_ctx" in kwargs:
+        return kwargs["num_ctx"]
+
+    try:
+        # Get model information from Ollama API
+        model_info = client.show(model)
+
+        # In Ollama, model_info.parameters is a string containing model parameters
+        if "parameters" in model_info and model_info["parameters"]:
+            params_str = model_info["parameters"]
+
+            # Look for num_ctx parameter
+            pattern = r"num_ctx\s*=\s*(\d+)"
+            match = re.search(pattern, params_str)
+            if match:
+                return int(match.group(1))
+
+        # If we couldn't find it in parameters, return default value
+        return 2048
+    except Exception as e:
+        # Log the error but don't fail
+        logger.error(f"Error retrieving context window size for {model}: {e}")
+        return 2048
+
+
 def invoke_ollama(
     model: str,
     system_prompt: str,
     messages: List[Dict[str, Any]],
     tools: List[Dict[str, Any]],
     temperature: float,
-    secrets: Secrets,  # <-- Add secrets parameter
+    secrets: Secrets,
     host: str | None = None,
     # Add other Ollama specific parameters if needed from config
     **kwargs,  # Catch any other backend-specific params from config
@@ -120,6 +159,10 @@ def invoke_ollama(
         message = response.get("message", {})
         content = message.get("content", "") or ""  # Ensure content is string or empty string
         tool_calls = message.get("tool_calls")
+
+        num_ctx = get_num_ctx(client, model, kwargs)
+        if response.prompt_eval_count + response.prompt_eval_count >= num_ctx:
+            return None, f"Error: context length exceeded"
 
         if tool_calls and isinstance(tool_calls, list) and len(tool_calls) > 0:
             # Process tool calls - assuming only one for this benchmark's purpose
