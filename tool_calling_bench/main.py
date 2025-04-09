@@ -24,6 +24,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Suppress logging from third-party libraries like 'requests'
+logging.getLogger("urllib3").setLevel(logging.WARNING)  # Suppress urllib3 logs
+logging.getLogger("requests").setLevel(logging.WARNING) # Suppress requests logs
+
 # --- Constants ---
 NO_DISTRACTOR_KEY = "none"  # Define a constant for the no-distractor case
 
@@ -104,32 +108,29 @@ def run_evaluation(
         )
     )
 
-    for q_data in questions:
-        question_id = q_data["id"]
-        question_text = q_data["question"]
-        expected_tool = q_data.get("expected_tool")  # Use .get() to handle missing keys
+    for distractor_key in distractors_to_run:
+        logger.info(f"Running with Distractor Context: '{distractor_key}' ({num_runs} times)...")
 
-        logger.info(
-            f"Testing Question ID: {question_id} ('{question_text}') | Expected Tool: {expected_tool or 'None (No Tool Expected)'}"
-        )
+        base_messages = []
+        if distractor_key != NO_DISTRACTOR_KEY:
+            distractor_messages = get_distractor_messages(distractor_key)
+            if distractor_messages:
+                base_messages = list(distractor_messages)  # Ensure it's a mutable copy
+            else:
+                # This case should be caught during argument parsing, but handle defensively
+                logger.error(
+                    f"Distractor key '{distractor_key}' not found in DISTRACTOR_SETS. Skipping this context."
+                )
+                continue
 
-        # Loop through the specified distractors (including 'none')
-        for distractor_key in distractors_to_run:
+        for q_data in questions:
+            question_id = q_data["id"]
+            question_text = q_data["question"]
+            expected_tool = q_data.get("expected_tool")  # Use .get() to handle missing keys
+
             logger.info(
-                f"  Running with Distractor Context: '{distractor_key}' ({num_runs} times)..."
+                f"Testing Question ID: {question_id} ('{question_text}') | Expected Tool: {expected_tool or 'None (No Tool Expected)'}"
             )
-
-            base_messages = []
-            if distractor_key != NO_DISTRACTOR_KEY:
-                distractor_messages = get_distractor_messages(distractor_key)
-                if distractor_messages:
-                    base_messages = list(distractor_messages)  # Ensure it's a mutable copy
-                else:
-                    # This case should be caught during argument parsing, but handle defensively
-                    logger.error(
-                        f"    Distractor key '{distractor_key}' not found in DISTRACTOR_SETS. Skipping this context."
-                    )
-                    continue
 
             for i in range(num_runs):
                 # Construct messages for this run
@@ -197,6 +198,9 @@ def display_results(all_results: dict, questions_data: list[dict], console: Cons
     """Formats and prints the evaluation results using Rich."""
     console.rule("[bold cyan]Evaluation Results Summary", style="cyan")
 
+    # Initialize a dictionary to track summary statistics for each distractor
+    distractor_summary = defaultdict(lambda: {"success": 0, "total": 0})
+
     for config_name, results_data in all_results.items():
         if not results_data:
             continue
@@ -250,6 +254,10 @@ def display_results(all_results: dict, questions_data: list[dict], console: Cons
                         str(res["total"]),
                         end_section=end_section,
                     )
+
+                    # Update distractor summary statistics
+                    distractor_summary[distractor_key]["success"] += res.get("success", 0)
+                    distractor_summary[distractor_key]["total"] += res.get("total", 0)
                 else:
                     # Add a placeholder row if results are missing/empty for this distractor
                     table.add_row(
@@ -266,6 +274,40 @@ def display_results(all_results: dict, questions_data: list[dict], console: Cons
                     )
 
         console.print(table)
+
+    # Generate a summary table for distractor success rates
+    summary_table = Table(
+        title="Summary Success Rates by Distractor", show_header=True, header_style="bold green"
+    )
+    summary_table.add_column("Distractor Context", width=20)
+    summary_table.add_column("Success Rate", justify="right")
+    summary_table.add_column("Total Success", justify="right")
+    summary_table.add_column("Total Runs", justify="right")
+
+    # Add rows for each distractor
+    for distractor_key, stats in distractor_summary.items():
+        total = stats["total"]
+        success = stats["success"]
+        success_rate = (success / total) * 100 if total > 0 else 0
+        summary_table.add_row(
+            distractor_key,
+            f"{success_rate:.1f}%",
+            str(success),
+            str(total),
+        )
+
+    # Add a row for the overall summary
+    overall_success = sum(stats["success"] for stats in distractor_summary.values())
+    overall_total = sum(stats["total"] for stats in distractor_summary.values())
+    overall_success_rate = (overall_success / overall_total) * 100 if overall_total > 0 else 0
+    summary_table.add_row(
+        "[bold]Overall[/bold]",
+        f"[bold]{overall_success_rate:.1f}%[/bold]",
+        f"[bold]{overall_success}[/bold]",
+        f"[bold]{overall_total}[/bold]",
+    )
+
+    console.print(summary_table)
 
 
 # --- Click CLI Definition ---
@@ -298,7 +340,7 @@ def display_results(all_results: dict, questions_data: list[dict], console: Cons
     "--runs",
     "-n",
     type=int,
-    default=3,
+    default=5,
     show_default=True,
     help="Number of times to repeat each question per distractor context.",
 )
@@ -306,12 +348,10 @@ def display_results(all_results: dict, questions_data: list[dict], console: Cons
     "--temperature",
     "--temp",
     type=float,
-    default=0.1,
+    default=0.7,
     show_default=True,
     help="Sampling temperature for the LLM.",
 )
-# Removed --distractors/--no-distractors and --distractor-set
-# Added new --distractors option
 @click.option(
     "--distractors",
     "distractors_option",
@@ -322,7 +362,6 @@ def display_results(all_results: dict, questions_data: list[dict], console: Cons
     f'Default: Run "{NO_DISTRACTOR_KEY}" and all available sets.',
 )
 @click.option("--verbose", "-v", is_flag=True, default=False, help="Enable detailed debug logging.")
-# Corrected function signature to match options
 def main(
     config_file: Path,
     tools_file: Path,
