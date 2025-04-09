@@ -315,7 +315,6 @@ def display_results(all_results: dict, questions_data: list[dict], console: Cons
 
 # --- Click CLI Definition ---
 @click.command()
-# Changed --config-dir to --config-file (as per your provided file)
 @click.option(
     "--config-file",
     "-c",
@@ -340,6 +339,14 @@ def display_results(all_results: dict, questions_data: list[dict], console: Cons
     help="Path to the JSON file containing test questions.",
 )
 @click.option(
+    "--questions",
+    "questions_option",
+    type=str,
+    default=None,
+    help="Comma-separated list of question IDs to include in the evaluation. "
+         "If not specified, all questions will be included.",
+)
+@click.option(
     "--runs",
     "-n",
     type=int,
@@ -361,14 +368,15 @@ def display_results(all_results: dict, questions_data: list[dict], console: Cons
     type=str,
     default=None,
     help=f'Comma-separated list of distractor sets to run. Use "{NO_DISTRACTOR_KEY}" for no distractor. '
-    f'Available sets: {", ".join(DISTRACTOR_SETS.keys())}. '
-    f'Default: Run "{NO_DISTRACTOR_KEY}" and all available sets.',
+         f'Available sets: {", ".join(DISTRACTOR_SETS.keys())}. '
+         f'Default: Run "{NO_DISTRACTOR_KEY}" and all available sets.',
 )
 @click.option("--verbose", "-v", is_flag=True, default=False, help="Enable detailed debug logging.")
 def main(
     config_file: Path,
     tools_file: Path,
     questions_file: Path,
+    questions_option: str | None,
     runs: int,
     temperature: float,
     distractors_option: str | None,
@@ -393,6 +401,19 @@ def main(
         if verbose:
             console.print_exception(show_locals=verbose)
         return
+
+    # --- Filter questions based on the --questions parameter ---
+    if questions_option:
+        requested_question_ids = {q_id.strip() for q_id in questions_option.split(",") if q_id.strip()}
+        filtered_questions = [
+            q for q in loaded_questions if q["id"] in requested_question_ids
+        ]
+        if not filtered_questions:
+            logger.error(f"No matching questions found for IDs: {', '.join(requested_question_ids)}")
+            return
+        loaded_questions = filtered_questions
+        logger.info(f"Filtered questions to {len(loaded_questions)} matching IDs: {', '.join(requested_question_ids)}")
+    # ---
 
     # --- Determine which distractors to run ---
     available_distractor_keys = list(DISTRACTOR_SETS.keys())
@@ -438,10 +459,3 @@ def main(
             console.print_exception(show_locals=True)
 
     display_results(all_results, loaded_questions, console)
-
-
-if __name__ == "__main__":
-    # Note: If running as a script directly, imports might need adjustment
-    # depending on your project structure (e.g., `from tool_calling_bench.llm_backends...`)
-    # If using `python -m tool_calling_bench.main`, the relative imports should work.
-    main()
